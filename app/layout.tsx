@@ -8,7 +8,7 @@ import { Analytics } from '@vercel/analytics/react';
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Quick Mail",
+  title: "One Time Mail",
   description: "Generate disposable email addresses instantly",
 };
 
