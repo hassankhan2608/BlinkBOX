@@ -1,9 +1,8 @@
 import { Account, Message } from './types';
 
-const API_URL = 'https://api.mail.tm';
-const MERCURE_URL = 'https://mercure.mail.tm/.well-known/mercure';
-
 export class MailService {
+  public API_URL = 'https://api.mail.tm';
+  private MERCURE_URL = 'https://mercure.mail.tm/.well-known/mercure';
   private token: string | null = null;
   private accountId: string | null = null;
   private eventSource: EventSource | null = null;
@@ -13,15 +12,16 @@ export class MailService {
     if (accountId) this.accountId = accountId;
   }
 
-  private async getToken(address: string, password: string): Promise<{ token: string }> {
-    const response = await fetch(`${API_URL}/token`, {
+  async getToken(address: string, password: string): Promise<{ token: string }> {
+    const response = await fetch(`${this.API_URL}/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ address, password }),
     });
 
     if (!response.ok) {
-      throw new Error(`Authentication failed: ${await response.text()}`);
+      const error = await response.json();
+      throw new Error(error['hydra:description'] || 'Authentication failed');
     }
 
     const data = await response.json();
@@ -29,26 +29,30 @@ export class MailService {
     return data;
   }
 
-  async createAccount(customUsername?: string): Promise<Account> {
-    try {
-      // Get available domains
-      const domainsResponse = await fetch(`${API_URL}/domains`);
-      if (!domainsResponse.ok) {
-        throw new Error(`Failed to fetch domains: ${await domainsResponse.text()}`);
-      }
+  async getDomains() {
+    const response = await fetch(`${this.API_URL}/domains`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch domains');
+    }
 
-      const domains = await domainsResponse.json();
-      if (!domains['hydra:member']?.length) {
+    const data = await response.json();
+    return data['hydra:member'] || [];
+  }
+
+  async createAccount(username?: string, domain?: string, customPassword?: string): Promise<Account> {
+    try {
+      // Get available domains if not provided
+      const domains = await this.getDomains();
+      if (!domains.length) {
         throw new Error('No available domains found');
       }
 
-      const domain = domains['hydra:member'][0].domain;
-      const username = customUsername || Math.random().toString(36).substring(2, 12);
-      const address = `${username}@${domain}`;
-      const password = Math.random().toString(36).substring(2, 12) + 'X!1';
+      const selectedDomain = domain || domains[0].domain;
+      const address = `${username || Math.random().toString(36).substring(2, 12)}@${selectedDomain}`;
+      const password = customPassword || Math.random().toString(36).substring(2, 12) + 'X!1';
 
       // Create account
-      const accountResponse = await fetch(`${API_URL}/accounts`, {
+      const accountResponse = await fetch(`${this.API_URL}/accounts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address, password }),
@@ -56,6 +60,9 @@ export class MailService {
 
       if (!accountResponse.ok) {
         const error = await accountResponse.json();
+        if (error['hydra:description']?.includes('already exists')) {
+          throw new Error('This email address is already taken');
+        }
         throw new Error(error['hydra:description'] || 'Failed to create account');
       }
 
@@ -84,7 +91,7 @@ export class MailService {
       throw new Error('Not authenticated');
     }
 
-    const response = await fetch(`${API_URL}/messages`, {
+    const response = await fetch(`${this.API_URL}/messages`, {
       headers: { Authorization: `Bearer ${this.token}` },
     });
 
@@ -101,7 +108,7 @@ export class MailService {
       throw new Error('Not authenticated');
     }
 
-    const response = await fetch(`${API_URL}/messages/${id}`, {
+    const response = await fetch(`${this.API_URL}/messages/${id}`, {
       headers: { Authorization: `Bearer ${this.token}` },
     });
 
@@ -123,7 +130,7 @@ export class MailService {
       this.eventSource.close();
     }
 
-    const url = new URL(MERCURE_URL);
+    const url = new URL(this.MERCURE_URL);
     url.searchParams.append('topic', `/accounts/${accountId}`);
 
     this.eventSource = new EventSource(url.toString());
