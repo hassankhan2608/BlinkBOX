@@ -1,7 +1,8 @@
 # 📧 BlinkBOX - Modern Temporary Email Service
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/hassankhan2608/BlinkBOX/main/public/logo.png" alt="BlinkBOX Logo" width="200"/>
+![image](https://github.com/user-attachments/assets/5549c1cc-ab20-4520-b82a-24ca28c39d16)
+
   
   ![React](https://img.shields.io/badge/React-18-blue?logo=react)
   ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)
@@ -134,7 +135,7 @@ npm run dev
 
 ## 🌐 Live Demo
 
-Experience BlinkBOX now: [Live Demo](https://blinkbox.netlify.app)
+Experience BlinkBOX now: [Live Demo](https://blinkbox.vercel.app)
 
 ## 🤝 Contributing
 
