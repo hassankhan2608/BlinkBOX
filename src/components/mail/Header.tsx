@@ -193,7 +193,7 @@ export function Header() {
       <div className="flex h-16 items-center px-4">
         <div className="flex items-center gap-4">
           <a
-            href="https://github.com/stackblitz/temp-mail"
+            href="https://github.com/hassankhan2608/BlinkBOX.git"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
