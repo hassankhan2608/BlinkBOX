@@ -170,7 +170,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Contact
 
-Hassan Khan - [@hassankhan2608](https://github.com/hassankhan2608)
+Hassan Khan - [@hassankhan2608](https://hassankhan2608.github.io)
 
 Project Link: [https://github.com/hassankhan2608/BlinkBOX](https://github.com/hassankhan2608/BlinkBOX)
 
