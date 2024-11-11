@@ -43,7 +43,7 @@ function LoadingSkeleton() {
 
 function MailApp() {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
-  const { loading, initialize, mailService } = useMailStore();
+  const { loading, initialize, mailService, email } = useMailStore();
 
   const handleMessageSelect = useCallback(async (message: Message) => {
     setSelectedMessage(message);
@@ -69,6 +69,11 @@ function MailApp() {
 
     initApp();
   }, [initialize]);
+
+  // Reset selected message when email changes (after account deletion)
+  useEffect(() => {
+    setSelectedMessage(null);
+  }, [email]);
 
   if (loading) {
     return <LoadingSkeleton />;

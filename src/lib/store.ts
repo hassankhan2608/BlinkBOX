@@ -71,12 +71,16 @@ export const useMailStore = create<MailState>()(
         if (!mailService) return;
 
         try {
+          set({ loading: true });
           await mailService.deleteAccount();
           get().resetState();
           toast.success('Account deleted successfully');
+          // Immediately generate a new account
+          await get().generateNewEmail();
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Failed to delete account';
           toast.error(errorMessage);
+          set({ loading: false });
           throw error;
         }
       },
