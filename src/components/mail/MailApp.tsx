@@ -43,7 +43,7 @@ function LoadingSkeleton() {
 
 function MailApp() {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
-  const { loading, initialize, mailService, email } = useMailStore();
+  const { loading, initialize, mailService, email, refreshInbox } = useMailStore();
 
   const handleMessageSelect = useCallback(async (message: Message) => {
     setSelectedMessage(message);
@@ -69,6 +69,17 @@ function MailApp() {
 
     initApp();
   }, [initialize]);
+
+  // Auto refresh inbox every 5 seconds
+  useEffect(() => {
+    if (!loading) {
+      const intervalId = setInterval(() => {
+        refreshInbox();
+      }, 5000);
+
+      return () => clearInterval(intervalId);
+    }
+  }, [loading, refreshInbox]);
 
   // Reset selected message when email changes (after account deletion)
   useEffect(() => {
