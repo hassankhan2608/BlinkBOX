@@ -44,20 +44,37 @@ function LoadingSkeleton() {
 
 function MailApp() {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [showSidebar, setShowSidebar] = useState(window.innerWidth >= 768);
   const { loading, initialize, mailService, email, refreshInbox } = useMailStore();
+
+  useEffect(() => {
+    const handleResize = () => {
+      setShowSidebar(window.innerWidth >= 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleMessageSelect = useCallback(async (message: Message) => {
     setSelectedMessage(message);
+    if (window.innerWidth < 768) {
+      setShowSidebar(false);
+    }
     if (!message.seen && mailService) {
       try {
         await mailService.markAsRead(message.id);
-        // Update the message in the store
         refreshInbox();
       } catch (error) {
         console.error('Failed to mark message as read:', error);
       }
     }
   }, [mailService, refreshInbox]);
+
+  const handleBack = useCallback(() => {
+    setShowSidebar(true);
+    setSelectedMessage(null);
+  }, []);
 
   useEffect(() => {
     const initApp = async () => {
@@ -71,7 +88,6 @@ function MailApp() {
     initApp();
   }, [initialize]);
 
-  // Auto refresh inbox every 5 seconds
   useEffect(() => {
     if (!loading) {
       const intervalId = setInterval(() => {
@@ -82,7 +98,6 @@ function MailApp() {
     }
   }, [loading, refreshInbox]);
 
-  // Reset selected message when email changes (after account deletion)
   useEffect(() => {
     setSelectedMessage(null);
   }, [email]);
@@ -95,9 +110,27 @@ function MailApp() {
     <div className="h-screen flex flex-col bg-background">
       <Header />
       <div className="flex-1 flex overflow-hidden p-2 gap-2">
-        <Sidebar onMessageSelect={handleMessageSelect} selectedId={selectedMessage?.id} />
-        <main className="flex-1 glass rounded-xl overflow-hidden">
-          <EmailDisplay message={selectedMessage} />
+        {/* Sidebar with conditional rendering for mobile */}
+        <div className={`
+          md:relative md:translate-x-0 md:flex
+          ${showSidebar ? 'flex' : 'hidden'}
+          ${window.innerWidth < 768 ? 'absolute inset-0 z-20 m-0 bg-background' : ''}
+        `}>
+          <Sidebar 
+            onMessageSelect={handleMessageSelect} 
+            selectedId={selectedMessage?.id}
+          />
+        </div>
+
+        {/* Main content */}
+        <main className={`
+          flex-1 glass rounded-xl overflow-hidden
+          ${(!showSidebar || window.innerWidth >= 768) ? 'flex' : 'hidden'}
+        `}>
+          <EmailDisplay 
+            message={selectedMessage} 
+            onBack={handleBack}
+          />
         </main>
       </div>
     </div>
