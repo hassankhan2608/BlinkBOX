@@ -102,12 +102,12 @@ export function Header() {
     }
   }, [domains, selectedDomain]);
 
-  const copyEmail = () => {
+  const handleCopyEmail = () => {
     navigator.clipboard.writeText(email);
     toast.success('Email copied to clipboard');
   };
 
-  const copyPassword = () => {
+  const handleCopyPassword = () => {
     if (password) {
       navigator.clipboard.writeText(password);
       toast.success('Password copied to clipboard');
@@ -189,7 +189,7 @@ export function Header() {
   const usagePercentage = (used / quota) * 100;
 
   return (
-    <header className="border-b">
+    <header className="glass mb-2">
       <div className="flex h-16 items-center px-4">
         <div className="flex items-center gap-4">
           <a
@@ -212,7 +212,7 @@ export function Header() {
         <Button
           variant="ghost"
           className="flex-1 justify-start font-mono text-sm max-w-2xl truncate px-3"
-          onClick={copyEmail}
+          onClick={handleCopyEmail}
         >
           <Copy className="h-4 w-4 mr-2 flex-shrink-0" />
           {email}
@@ -244,7 +244,7 @@ export function Header() {
                   </Label>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-xs bg-muted p-1 rounded">{email}</code>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyEmail}>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopyEmail}>
                       <Copy className="h-3 w-3" />
                     </Button>
                   </div>
@@ -269,7 +269,7 @@ export function Header() {
                         <Eye className="h-3 w-3" />
                       )}
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyPassword}>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopyPassword}>
                       <Copy className="h-3 w-3" />
                     </Button>
                   </div>

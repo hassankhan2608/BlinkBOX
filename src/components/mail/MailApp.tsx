@@ -5,11 +5,12 @@ import { EmailDisplay } from './EmailDisplay';
 import { useMailStore } from '@/lib/store';
 import { Message } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
+import { Mail } from 'lucide-react';
 
 function LoadingSkeleton() {
   return (
     <div className="h-screen flex flex-col bg-background">
-      <div className="border-b">
+      <div className="glass">
         <div className="flex h-16 items-center px-4 gap-4">
           <Skeleton className="h-8 w-24" />
           <Skeleton className="h-8 flex-1 max-w-2xl" />
@@ -20,21 +21,21 @@ function LoadingSkeleton() {
         </div>
       </div>
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-[320px] border-r p-4">
-          <div className="space-y-4">
+        <div className="w-[320px] lg:w-[380px] glass m-2 rounded-xl">
+          <div className="space-y-4 p-4">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
             <div className="h-4" />
             <Skeleton className="h-4 w-3/4" />
             <div className="space-y-3">
               {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-24 w-full" />
+                <Skeleton key={i} className="h-24 w-full rounded-xl" />
               ))}
             </div>
           </div>
         </div>
-        <main className="flex-1 overflow-hidden">
-          <Skeleton className="h-full w-full" />
+        <main className="flex-1 m-2">
+          <Skeleton className="h-full w-full rounded-xl" />
         </main>
       </div>
     </div>
@@ -51,12 +52,12 @@ function MailApp() {
       try {
         await mailService.markAsRead(message.id);
         // Update the message in the store
-        useMailStore.getState().refreshInbox();
+        refreshInbox();
       } catch (error) {
         console.error('Failed to mark message as read:', error);
       }
     }
-  }, [mailService]);
+  }, [mailService, refreshInbox]);
 
   useEffect(() => {
     const initApp = async () => {
@@ -93,9 +94,9 @@ function MailApp() {
   return (
     <div className="h-screen flex flex-col bg-background">
       <Header />
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden p-2 gap-2">
         <Sidebar onMessageSelect={handleMessageSelect} selectedId={selectedMessage?.id} />
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 glass rounded-xl overflow-hidden">
           <EmailDisplay message={selectedMessage} />
         </main>
       </div>

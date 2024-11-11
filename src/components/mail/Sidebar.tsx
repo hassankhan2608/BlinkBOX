@@ -1,4 +1,4 @@
-import { RefreshCw, Inbox, Wand2 } from 'lucide-react';
+import { RefreshCw, Inbox, Wand2, Mail } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
@@ -15,7 +15,7 @@ export function Sidebar({ onMessageSelect, selectedId }: SidebarProps) {
   const { messages, refreshInbox, generateNewEmail, refreshing } = useMailStore();
 
   return (
-    <div className="w-[320px] border-r bg-muted/10">
+    <div className="w-[320px] lg:w-[380px] glass rounded-xl">
       <div className="p-4 space-y-4">
         <div className="space-y-2">
           <Button
@@ -48,9 +48,14 @@ export function Sidebar({ onMessageSelect, selectedId }: SidebarProps) {
           <ScrollArea className="h-[calc(100vh-13rem)]">
             <div className="space-y-2 pr-4">
               {messages.length === 0 ? (
-                <p className="text-sm text-muted-foreground p-2">
-                  No messages yet
-                </p>
+                <div className="flex flex-col items-center justify-center py-12 px-4">
+                  <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                    <Mail className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-muted-foreground text-center">
+                    No messages yet. Your inbox is empty.
+                  </p>
+                </div>
               ) : (
                 messages.map((message) => (
                   <button
