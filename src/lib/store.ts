@@ -14,6 +14,10 @@ interface MailState {
   token: string | null;
   accountId: string | null;
   password: string | null;
+  quota: number;
+  used: number;
+  createdAt: string | null;
+  updatedAt: string | null;
   domains: { domain: string }[];
   setLoading: (loading: boolean) => void;
   setEmail: (email: string) => void;
@@ -24,24 +28,77 @@ interface MailState {
   initialize: () => Promise<void>;
   loginWithCredentials: (email: string, password: string) => Promise<void>;
   fetchDomains: () => Promise<void>;
+  updateAccountInfo: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
+  resetState: () => void;
 }
+
+const initialState = {
+  loading: true,
+  email: '',
+  messages: [],
+  refreshing: false,
+  mailService: null,
+  token: null,
+  accountId: null,
+  password: null,
+  quota: 41943040,
+  used: 0,
+  createdAt: null,
+  updatedAt: null,
+  domains: [],
+};
 
 export const useMailStore = create<MailState>()(
   persist(
     (set, get) => ({
-      loading: true,
-      email: '',
-      messages: [],
-      refreshing: false,
-      mailService: null,
-      token: null,
-      accountId: null,
-      password: null,
-      domains: [],
+      ...initialState,
 
       setLoading: (loading) => set({ loading }),
       setEmail: (email) => set({ email }),
       setMessages: (messages) => set({ messages }),
+
+      resetState: () => {
+        const { mailService } = get();
+        if (mailService) {
+          mailService.cleanup();
+        }
+        set(initialState);
+      },
+
+      deleteAccount: async () => {
+        const { mailService } = get();
+        if (!mailService) return;
+
+        try {
+          await mailService.deleteAccount();
+          get().resetState();
+          toast.success('Account deleted successfully');
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to delete account';
+          toast.error(errorMessage);
+          throw error;
+        }
+      },
+
+      updateAccountInfo: async () => {
+        const { mailService } = get();
+        if (!mailService) return;
+
+        try {
+          const accountInfo = await mailService.getAccountInfo();
+          if (accountInfo) {
+            set({
+              quota: accountInfo.quota,
+              used: accountInfo.used,
+              createdAt: accountInfo.createdAt,
+              updatedAt: accountInfo.updatedAt,
+            });
+          }
+        } catch (error) {
+          console.error('Failed to update account info:', error);
+        }
+      },
 
       fetchDomains: async () => {
         try {
@@ -50,6 +107,7 @@ export const useMailStore = create<MailState>()(
           set({ domains });
         } catch (error) {
           console.error('Failed to fetch domains:', error);
+          throw error;
         }
       },
 
@@ -58,7 +116,6 @@ export const useMailStore = create<MailState>()(
           set({ loading: true });
           const mailService = new MailService();
 
-          // Validate inputs
           if (!username || !domain || !password) {
             throw new Error('Please fill in all fields');
           }
@@ -67,7 +124,6 @@ export const useMailStore = create<MailState>()(
             throw new Error('Password must be at least 8 characters long');
           }
 
-          // Create account with custom details
           const account = await mailService.createAccount(username, domain, password);
 
           set({
@@ -76,15 +132,12 @@ export const useMailStore = create<MailState>()(
             token: account.token,
             accountId: account.id,
             password: account.password,
+            quota: account.quota,
+            used: account.used,
+            createdAt: account.createdAt,
+            updatedAt: account.updatedAt,
             messages: [],
             loading: false,
-          });
-
-          // Start listening for new messages
-          mailService.listenForMessages(account.id, account.token, (message) => {
-            set((state) => ({
-              messages: [message, ...state.messages],
-            }));
           });
 
           toast.success('Custom email created successfully');
@@ -92,7 +145,7 @@ export const useMailStore = create<MailState>()(
           const errorMessage = error instanceof Error ? error.message : 'Failed to create custom email';
           toast.error(errorMessage);
           set({ loading: false });
-          throw error; // Re-throw to handle in the component
+          throw error;
         }
       },
 
@@ -102,16 +155,10 @@ export const useMailStore = create<MailState>()(
           const mailService = new MailService();
           const { token } = await mailService.getToken(email, password);
           
-          // Get account details
-          const accountResponse = await fetch(`${mailService.API_URL}/me`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          
-          if (!accountResponse.ok) {
+          const account = await mailService.getAccountInfo();
+          if (!account) {
             throw new Error('Failed to get account details');
           }
-          
-          const account = await accountResponse.json();
           
           set({
             mailService,
@@ -119,18 +166,14 @@ export const useMailStore = create<MailState>()(
             token,
             accountId: account.id,
             password,
+            quota: account.quota,
+            used: account.used,
+            createdAt: account.createdAt,
+            updatedAt: account.updatedAt,
             messages: [],
             loading: false,
           });
 
-          // Start listening for new messages
-          mailService.listenForMessages(account.id, token, (message) => {
-            set((state) => ({
-              messages: [message, ...state.messages],
-            }));
-          });
-
-          // Fetch initial messages
           const messages = await mailService.getMessages();
           set({ messages });
 
@@ -150,33 +193,26 @@ export const useMailStore = create<MailState>()(
             const mailService = new MailService(state.token, state.accountId);
             set({ mailService });
 
-            // Verify token is still valid by attempting to fetch messages
-            await mailService.getMessages();
+            const accountInfo = await mailService.getAccountInfo();
+            if (!accountInfo) {
+              throw new Error('Invalid token');
+            }
 
-            // Start listening for new messages
-            mailService.listenForMessages(state.accountId, state.token, (message) => {
-              set((state) => ({
-                messages: [message, ...state.messages],
-              }));
+            set({
+              quota: accountInfo.quota,
+              used: accountInfo.used,
+              createdAt: accountInfo.createdAt,
+              updatedAt: accountInfo.updatedAt,
             });
 
-            // Set up auto-refresh
-            const refreshInterval = setInterval(() => {
-              get().refreshInbox();
-            }, 5000);
-
-            // Fetch initial messages
             const messages = await mailService.getMessages();
             set({ messages, loading: false });
 
-            // Cleanup interval on unmount
-            return () => clearInterval(refreshInterval);
           } catch (error) {
             console.error('Token expired or invalid, generating new email');
             await get().generateNewEmail();
           }
         } else {
-          // No existing session, create new email
           await get().generateNewEmail();
         }
       },
@@ -200,11 +236,11 @@ export const useMailStore = create<MailState>()(
       generateNewEmail: async () => {
         const currentState = get();
         if (currentState.mailService) {
-          // Clean up existing EventSource
-          currentState.mailService.listenForMessages('', '', () => {})();
+          currentState.mailService.cleanup();
         }
 
         try {
+          set({ loading: true });
           const mailService = new MailService();
           const username = generateEmailUsername();
           const account = await mailService.createAccount(username);
@@ -215,15 +251,12 @@ export const useMailStore = create<MailState>()(
             token: account.token,
             accountId: account.id,
             password: account.password || null,
+            quota: account.quota,
+            used: account.used,
+            createdAt: account.createdAt,
+            updatedAt: account.updatedAt,
             messages: [],
             loading: false,
-          });
-
-          // Start listening for new messages
-          mailService.listenForMessages(account.id, account.token, (message) => {
-            set((state) => ({
-              messages: [message, ...state.messages],
-            }));
           });
 
           toast.success('New email address generated');
@@ -232,6 +265,7 @@ export const useMailStore = create<MailState>()(
           console.error('Failed to generate new email:', errorMessage);
           toast.error(errorMessage);
           set({ loading: false });
+          throw error;
         }
       },
     }),
@@ -242,6 +276,10 @@ export const useMailStore = create<MailState>()(
         token: state.token,
         accountId: state.accountId,
         password: state.password,
+        quota: state.quota,
+        used: state.used,
+        createdAt: state.createdAt,
+        updatedAt: state.updatedAt,
       }),
     }
   )

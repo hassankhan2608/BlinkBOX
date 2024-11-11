@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { EmailDisplay } from './EmailDisplay';
@@ -20,7 +20,7 @@ function LoadingSkeleton() {
         </div>
       </div>
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-[320px] border-r bg-muted/10 p-4">
+        <div className="w-[320px] border-r p-4">
           <div className="space-y-4">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
@@ -33,8 +33,8 @@ function LoadingSkeleton() {
             </div>
           </div>
         </div>
-        <main className="flex-1 overflow-hidden bg-muted/10 p-4">
-          <Skeleton className="h-full w-full rounded-lg" />
+        <main className="flex-1 overflow-hidden">
+          <Skeleton className="h-full w-full" />
         </main>
       </div>
     </div>
@@ -43,16 +43,31 @@ function LoadingSkeleton() {
 
 function MailApp() {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
-  const { loading, initialize } = useMailStore();
+  const { loading, initialize, mailService } = useMailStore();
+
+  const handleMessageSelect = useCallback(async (message: Message) => {
+    setSelectedMessage(message);
+    if (!message.seen && mailService) {
+      try {
+        await mailService.markAsRead(message.id);
+        // Update the message in the store
+        useMailStore.getState().refreshInbox();
+      } catch (error) {
+        console.error('Failed to mark message as read:', error);
+      }
+    }
+  }, [mailService]);
 
   useEffect(() => {
-    initialize();
-    return () => {
-      const mailService = useMailStore.getState().mailService;
-      if (mailService) {
-        mailService.listenForMessages('', '', () => {})();
+    const initApp = async () => {
+      try {
+        await initialize();
+      } catch (error) {
+        console.error('Failed to initialize app:', error);
       }
     };
+
+    initApp();
   }, [initialize]);
 
   if (loading) {
@@ -63,8 +78,8 @@ function MailApp() {
     <div className="h-screen flex flex-col bg-background">
       <Header />
       <div className="flex-1 flex overflow-hidden">
-        <Sidebar onMessageSelect={setSelectedMessage} selectedId={selectedMessage?.id} />
-        <main className="flex-1 overflow-hidden bg-muted/10">
+        <Sidebar onMessageSelect={handleMessageSelect} selectedId={selectedMessage?.id} />
+        <main className="flex-1 overflow-hidden">
           <EmailDisplay message={selectedMessage} />
         </main>
       </div>

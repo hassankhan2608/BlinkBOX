@@ -1,4 +1,4 @@
-import { Copy, Mail, Plus } from 'lucide-react';
+import { Copy, Github, Mail, Plus, Database, Eye, EyeOff, Clock, Trash2, Inbox, LogIn, UserPlus } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ThemeToggle } from '../theme-toggle';
 import { useMailStore } from '@/lib/store';
@@ -24,9 +24,60 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
+function formatBytes(bytes: number) {
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = bytes;
+  let unitIndex = 0;
+  
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+  
+  return `${size.toFixed(2)} ${units[unitIndex]}`;
+}
+
+function formatDate(dateString: string | null) {
+  if (!dateString) return 'N/A';
+  return new Date(dateString).toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+}
 
 export function Header() {
-  const { email, password, loginWithCredentials, createCustomEmail, domains, fetchDomains } = useMailStore();
+  const { 
+    email, 
+    password,
+    accountId,
+    createdAt,
+    quota,
+    used,
+    loginWithCredentials, 
+    createCustomEmail, 
+    domains, 
+    fetchDomains,
+    updateAccountInfo,
+    deleteAccount 
+  } = useMailStore();
+  
   const firstLetter = email ? email[0].toUpperCase() : 'U';
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isCustomEmailOpen, setIsCustomEmailOpen] = useState(false);
@@ -37,10 +88,13 @@ export function Header() {
   const [selectedDomain, setSelectedDomain] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     fetchDomains();
-  }, [fetchDomains]);
+    const interval = setInterval(updateAccountInfo, 30000);
+    return () => clearInterval(interval);
+  }, [fetchDomains, updateAccountInfo]);
 
   useEffect(() => {
     if (domains.length > 0 && !selectedDomain) {
@@ -57,6 +111,17 @@ export function Header() {
     if (password) {
       navigator.clipboard.writeText(password);
       toast.success('Password copied to clipboard');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsLoading(true);
+    try {
+      await deleteAccount();
+    } catch (error) {
+      // Error is already handled in the store
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -121,15 +186,28 @@ export function Header() {
     }
   };
 
+  const usagePercentage = (used / quota) * 100;
+
   return (
     <header className="border-b">
-      <div className="flex h-16 items-center px-4 gap-4">
-        <div className="flex items-center gap-2 font-semibold text-lg">
-          <Mail className="h-5 w-5" />
-          <span>BlinkMail</span>
+      <div className="flex h-16 items-center px-4">
+        <div className="flex items-center gap-4">
+          <a
+            href="https://github.com/stackblitz/temp-mail"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Github className="h-5 w-5" />
+          </a>
+          <Separator orientation="vertical" className="h-8" />
+          <div className="flex items-center gap-2 font-semibold text-lg">
+            <Inbox className="h-6 w-6 text-primary" />
+            <span>Blinkbox</span>
+          </div>
         </div>
 
-        <Separator orientation="vertical" className="h-8" />
+        <Separator orientation="vertical" className="h-8 mx-4" />
 
         <Button
           variant="ghost"
@@ -140,7 +218,7 @@ export function Header() {
           {email}
         </Button>
 
-        <div className="flex items-center gap-4">
+        <div className="ml-auto flex items-center gap-4">
           <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -148,28 +226,83 @@ export function Header() {
                 <AvatarFallback>{firstLetter}</AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[240px]">
+            <DropdownMenuContent align="end" className="w-[300px]">
               <DropdownMenuLabel>Account Details</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={copyEmail}>
-                <div className="w-full">
-                  <div className="text-xs text-muted-foreground font-mono truncate">
-                    {email}
+              <div className="p-2 space-y-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Database className="h-3 w-3" /> Account ID
+                  </Label>
+                  <code className="block text-xs bg-muted p-1 rounded break-all">
+                    {accountId}
+                  </code>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Mail className="h-3 w-3" /> Email Address
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-xs bg-muted p-1 rounded">{email}</code>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyEmail}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={copyPassword}>
-                <div className="w-full">
-                  <div className="text-xs text-muted-foreground font-mono truncate">
-                    {password || 'Not available'}
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Eye className="h-3 w-3" /> Password
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-xs bg-muted p-1 rounded">
+                      {showPassword ? password || 'Not available' : '••••••••'}
+                    </code>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6" 
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-3 w-3" />
+                      ) : (
+                        <Eye className="h-3 w-3" />
+                      )}
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyPassword}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
-              </DropdownMenuItem>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> Created At
+                  </Label>
+                  <div className="text-xs text-muted-foreground">
+                    {formatDate(createdAt)}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Database className="h-3 w-3" /> Storage
+                  </Label>
+                  <div className="text-xs">
+                    {formatBytes(used)} of {formatBytes(quota)} used
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary transition-all duration-300" 
+                      style={{ width: `${Math.min(usagePercentage, 100)}%` }} 
+                      title={`${usagePercentage.toFixed(1)}% used`}
+                    />
+                  </div>
+                </div>
+              </div>
               <DropdownMenuSeparator />
               <Dialog open={isCustomEmailOpen} onOpenChange={handleCustomEmailDialogClose}>
                 <DialogTrigger asChild>
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Plus className="h-4 w-4 mr-2" />
+                    <UserPlus className="h-4 w-4 mr-2" />
                     Create Custom Email
                   </DropdownMenuItem>
                 </DialogTrigger>
@@ -236,6 +369,7 @@ export function Header() {
               <Dialog open={isLoginOpen} onOpenChange={setIsLoginOpen}>
                 <DialogTrigger asChild>
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <LogIn className="h-4 w-4 mr-2" />
                     Login with Different Account
                   </DropdownMenuItem>
                 </DialogTrigger>
@@ -275,6 +409,33 @@ export function Header() {
                   </div>
                 </DialogContent>
               </Dialog>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Account
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                   <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Account</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete your
+                      account and remove all your data from our servers.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDeleteAccount}
+                      disabled={isLoading}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {isLoading ? 'Deleting...' : 'Delete Account'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

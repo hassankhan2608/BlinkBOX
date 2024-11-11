@@ -2,14 +2,38 @@ import { Account, Message } from './types';
 
 export class MailService {
   public API_URL = 'https://api.mail.tm';
-  private MERCURE_URL = 'https://mercure.mail.tm/.well-known/mercure';
   private token: string | null = null;
   private accountId: string | null = null;
-  private eventSource: EventSource | null = null;
+  private messageListeners: Set<(message: Message) => void> = new Set();
+  private pollInterval: number | null = null;
 
   constructor(token?: string, accountId?: string) {
     if (token) this.token = token;
     if (accountId) this.accountId = accountId;
+  }
+
+  cleanup() {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+    this.messageListeners.clear();
+  }
+
+  async deleteAccount(): Promise<void> {
+    if (!this.token || !this.accountId) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(`${this.API_URL}/accounts/${this.accountId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${this.token}` },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error['hydra:description'] || 'Failed to delete account');
+    }
   }
 
   async getToken(address: string, password: string): Promise<{ token: string }> {
@@ -29,6 +53,23 @@ export class MailService {
     return data;
   }
 
+  async getAccountInfo(): Promise<Account | null> {
+    if (!this.token) return null;
+
+    const response = await fetch(`${this.API_URL}/me`, {
+      headers: { Authorization: `Bearer ${this.token}` },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Invalid token');
+      }
+      return null;
+    }
+
+    return await response.json();
+  }
+
   async getDomains() {
     const response = await fetch(`${this.API_URL}/domains`);
     if (!response.ok) {
@@ -41,7 +82,6 @@ export class MailService {
 
   async createAccount(username?: string, domain?: string, customPassword?: string): Promise<Account> {
     try {
-      // Get available domains if not provided
       const domains = await this.getDomains();
       if (!domains.length) {
         throw new Error('No available domains found');
@@ -51,7 +91,6 @@ export class MailService {
       const address = `${username || Math.random().toString(36).substring(2, 12)}@${selectedDomain}`;
       const password = customPassword || Math.random().toString(36).substring(2, 12) + 'X!1';
 
-      // Create account
       const accountResponse = await fetch(`${this.API_URL}/accounts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -67,14 +106,20 @@ export class MailService {
       }
 
       const account = await accountResponse.json();
-
-      // Get token
       const tokenData = await this.getToken(address, password);
       this.token = tokenData.token;
       this.accountId = account.id;
 
+      const accountInfo = await this.getAccountInfo();
+      if (!accountInfo) {
+        throw new Error('Failed to get account info');
+      }
+
+      this.startPolling();
+
       return {
         ...account,
+        ...accountInfo,
         token: tokenData.token,
         password,
       };
@@ -84,6 +129,25 @@ export class MailService {
       }
       throw new Error('Failed to create account');
     }
+  }
+
+  private startPolling() {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+    }
+
+    this.pollInterval = window.setInterval(async () => {
+      try {
+        const messages = await this.getMessages();
+        this.messageListeners.forEach(listener => {
+          messages.forEach(message => {
+            listener(message);
+          });
+        });
+      } catch (error) {
+        console.error('Failed to poll messages:', error);
+      }
+    }, 10000);
   }
 
   async getMessages(): Promise<Message[]> {
@@ -96,6 +160,9 @@ export class MailService {
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Invalid token');
+      }
       throw new Error(`Failed to fetch messages: ${await response.text()}`);
     }
 
@@ -113,53 +180,41 @@ export class MailService {
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Invalid token');
+      }
       throw new Error(`Failed to fetch message: ${await response.text()}`);
     }
 
     return await response.json();
   }
 
-  listenForMessages(accountId: string, token: string, callback: (message: Message) => void) {
-    if (!accountId || !token) {
-      console.warn('Missing accountId or token for message listening');
-      return () => {};
+  async markAsRead(messageId: string): Promise<void> {
+    if (!this.token) {
+      throw new Error('Not authenticated');
     }
 
-    // Clean up existing connection
-    if (this.eventSource) {
-      this.eventSource.close();
+    const response = await fetch(`${this.API_URL}/messages/${messageId}`, {
+      method: 'PATCH',
+      headers: { 
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'application/merge-patch+json'
+      },
+      body: JSON.stringify({ seen: true })
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Invalid token');
+      }
+      throw new Error('Failed to mark message as read');
     }
+  }
 
-    const url = new URL(this.MERCURE_URL);
-    url.searchParams.append('topic', `/accounts/${accountId}`);
-
-    this.eventSource = new EventSource(url.toString());
-
-    this.eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        callback(data);
-      } catch (error) {
-        console.error('Failed to parse message:', error);
-      }
-    };
-
-    this.eventSource.onerror = () => {
-      console.warn('EventSource connection failed, retrying...');
-      if (this.eventSource) {
-        this.eventSource.close();
-      }
-      // Attempt to reconnect after a delay
-      setTimeout(() => {
-        this.listenForMessages(accountId, token, callback);
-      }, 5000);
-    };
-
+  onNewMessage(callback: (message: Message) => void): () => void {
+    this.messageListeners.add(callback);
     return () => {
-      if (this.eventSource) {
-        this.eventSource.close();
-        this.eventSource = null;
-      }
+      this.messageListeners.delete(callback);
     };
   }
 }

@@ -32,4 +32,10 @@ export interface Account {
   address: string;
   token: string;
   password?: string;
+  quota: number;
+  used: number;
+  createdAt: string;
+  updatedAt: string;
+  isDisabled: boolean;
+  isDeleted: boolean;
 }
