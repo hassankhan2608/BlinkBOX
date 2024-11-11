@@ -1,9 +1,7 @@
 # 📧 BlinkBOX - Modern Temporary Email Service
 
-<div align="center">
-![image](https://github.com/user-attachments/assets/5549c1cc-ab20-4520-b82a-24ca28c39d16)
+![image](https://github.com/user-attachments/assets/00167b91-72cc-4cd6-a68b-5d0f69976274)
 
-  
   ![React](https://img.shields.io/badge/React-18-blue?logo=react)
   ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)
   ![Tailwind](https://img.shields.io/badge/Tailwind-3.0-blue?logo=tailwind-css)
