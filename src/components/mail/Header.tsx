@@ -1,4 +1,4 @@
-import { Copy, Github, Mail, Plus, Database, Eye, EyeOff, Clock, Trash2, Inbox, LogIn, UserPlus } from 'lucide-react';
+import { Fingerprint, Copy, Github, Mail, Plus, Database, Eye, EyeOff, Clock, Trash2, Inbox, LogIn, UserPlus } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ThemeToggle } from '../theme-toggle';
 import { useMailStore } from '@/lib/store';
@@ -232,7 +232,7 @@ export function Header() {
               <div className="p-2 space-y-2">
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Database className="h-3 w-3" /> Account ID
+                    <Fingerprint className="h-3 w-3" /> Account ID
                   </Label>
                   <code className="block text-xs bg-muted p-1 rounded break-all">
                     {accountId}
