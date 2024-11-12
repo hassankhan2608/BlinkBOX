@@ -36,6 +36,24 @@ export class MailService {
     }
   }
 
+  async deleteMessage(messageId: string): Promise<void> {
+    if (!this.token) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(`${this.API_URL}/messages/${messageId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${this.token}` },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Invalid token');
+      }
+      throw new Error('Failed to delete message');
+    }
+  }
+
   async getToken(address: string, password: string): Promise<{ token: string }> {
     const response = await fetch(`${this.API_URL}/token`, {
       method: 'POST',

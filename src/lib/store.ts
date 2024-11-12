@@ -30,6 +30,8 @@ interface MailState {
   fetchDomains: () => Promise<void>;
   updateAccountInfo: () => Promise<void>;
   deleteAccount: () => Promise<void>;
+  deleteMessage: (messageId: string) => Promise<void>;
+  markMessageAsRead: (messageId: string) => Promise<void>;
   resetState: () => void;
 }
 
@@ -64,6 +66,39 @@ export const useMailStore = create<MailState>()(
           mailService.cleanup();
         }
         set(initialState);
+      },
+
+      deleteMessage: async (messageId: string) => {
+        const { mailService, messages } = get();
+        if (!mailService) return;
+
+        try {
+          await mailService.deleteMessage(messageId);
+          const updatedMessages = messages.filter(msg => msg.id !== messageId);
+          set({ messages: updatedMessages });
+          toast.success('Message deleted successfully');
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to delete message';
+          toast.error(errorMessage);
+          throw error;
+        }
+      },
+
+      markMessageAsRead: async (messageId: string) => {
+        const { mailService, messages } = get();
+        if (!mailService) return;
+
+        try {
+          await mailService.markAsRead(messageId);
+          const updatedMessages = messages.map(msg => 
+            msg.id === messageId ? { ...msg, seen: true } : msg
+          );
+          set({ messages: updatedMessages });
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to mark message as read';
+          console.error(errorMessage);
+          throw error;
+        }
       },
 
       deleteAccount: async () => {

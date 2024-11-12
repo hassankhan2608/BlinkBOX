@@ -31,6 +31,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import DOMPurify from 'dompurify';
 import { cn } from '@/lib/utils';
 
@@ -73,7 +84,10 @@ export function EmailDisplay({ message, onBack }: EmailDisplayProps) {
   const [fullMessage, setFullMessage] = useState<Message | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
   const mailService = useMailStore((state) => state.mailService);
+  const deleteMessage = useMailStore((state) => state.deleteMessage);
+  const markMessageAsRead = useMailStore((state) => state.markMessageAsRead);
   const [isMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {
@@ -84,6 +98,9 @@ export function EmailDisplay({ message, onBack }: EmailDisplayProps) {
       try {
         const details = await mailService.getMessage(message.id);
         setFullMessage(details);
+        if (!message.seen) {
+          await markMessageAsRead(message.id);
+        }
       } catch (error) {
         console.error('Failed to fetch message:', error);
       } finally {
@@ -91,7 +108,7 @@ export function EmailDisplay({ message, onBack }: EmailDisplayProps) {
       }
     }
     fetchMessage();
-  }, [message?.id, mailService]);
+  }, [message?.id, mailService, markMessageAsRead, message?.seen]);
 
   const handleDownload = async (url: string, filename: string, id: string) => {
     setDownloading(prev => new Set(prev).add(id));
@@ -134,6 +151,20 @@ export function EmailDisplay({ message, onBack }: EmailDisplayProps) {
         next.delete(id);
         return next;
       });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!message) return;
+    
+    setIsDeleting(true);
+    try {
+      await deleteMessage(message.id);
+      if (onBack) onBack();
+    } catch (error) {
+      console.error('Failed to delete message:', error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -194,9 +225,31 @@ export function EmailDisplay({ message, onBack }: EmailDisplayProps) {
                   <DropdownMenuItem>
                     <Forward className="h-4 w-4 mr-2" /> Forward
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive">
-                    <Trash2 className="h-4 w-4 mr-2" /> Delete
-                  </DropdownMenuItem>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>
+                        <Trash2 className="h-4 w-4 mr-2" /> Delete
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Message</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete this message? This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDelete}
+                          disabled={isDeleting}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          {isDeleting ? 'Deleting...' : 'Delete'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
